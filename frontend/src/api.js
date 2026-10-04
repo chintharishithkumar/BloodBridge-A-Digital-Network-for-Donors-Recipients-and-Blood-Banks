@@ -1,12 +1,26 @@
 import axios from 'axios';
 
-// Get base URL from environment or default to local backend
-let rawBaseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// Smart dynamic API resolution function
+function getBaseURL() {
+    const envUrl = import.meta.env.VITE_API_BASE_URL;
+    if (envUrl && envUrl !== 'undefined' && envUrl.trim() !== '') {
+        return envUrl;
+    }
 
-// Normalize: remove trailing slashes
+    // Check if browser is running locally
+    if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return 'http://localhost:5000/api';
+        }
+    }
+
+    // Production cloud fallback (Render deployed backend)
+    return 'https://blood-bridge-backend.onrender.com/api';
+}
+
+let rawBaseURL = getBaseURL();
 rawBaseURL = rawBaseURL.replace(/\/+$/, '');
-
-// Ensure base URL always ends with /api
 if (!rawBaseURL.endsWith('/api')) {
     rawBaseURL = `${rawBaseURL}/api`;
 }
@@ -19,7 +33,6 @@ const API = axios.create({
 
 // Interceptor to construct absolute request URLs and attach JWT token
 API.interceptors.request.use((config) => {
-    // If request url is relative, build absolute URL with rawBaseURL
     if (config.url && !config.url.startsWith('http://') && !config.url.startsWith('https://')) {
         const cleanPath = config.url.replace(/^\/+/, '');
         config.url = `${rawBaseURL}/${cleanPath}`;
