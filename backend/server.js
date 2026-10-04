@@ -133,15 +133,13 @@ app.use((err, req, res, next) => {
 
 const initDb = require("./config/initDb");
 
-// ===============================
-// START SERVER
-// ===============================
+// Initialize DB schema asynchronously for both server and serverless environments
+initDb().catch(err => console.error("DB init error:", err));
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
     console.log(`Blood-Bridge server running on port ${PORT}`);
-    await initDb();
 });
 
 module.exports = app;
