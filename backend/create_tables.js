@@ -1,6 +1,6 @@
 const { Client } = require('pg');
 
-const DATABASE_URL = 'postgresql://blood_bridge_db_kdjr_user:8LS25a5ZUoSch78ftrNin0shYMjVOX47@dpg-db1644navr4c73aetl80-a.singapore-postgres.render.com/blood_bridge_db_kdjr';
+const DATABASE_URL = process.argv[2] || process.env.DATABASE_URL || 'postgresql://blood_bridge_db_kdjr_user:8LS25a5ZUoSch78ftrNin0shYMjVOX47@dpg-db1644navr4c73aetl80-a.singapore-postgres.render.com/blood_bridge_db_kdjr';
 
 const client = new Client({
     connectionString: DATABASE_URL,
