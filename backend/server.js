@@ -143,3 +143,5 @@ app.listen(PORT, async () => {
     console.log(`Blood-Bridge server running on port ${PORT}`);
     await initDb();
 });
+
+module.exports = app;
