@@ -77,10 +77,19 @@ app.get("/api/db-test", async (req, res) => {
 // ===============================
 
 app.use("/api/auth", authRoutes);
+app.use("/auth", authRoutes);
+
 app.use("/api/donors", donorRoutes);
+app.use("/donors", donorRoutes);
+
 app.use("/api/recipients", recipientRoutes);
+app.use("/recipients", recipientRoutes);
+
 app.use("/api/blood-bank", bloodBankRoutes);
+app.use("/blood-bank", bloodBankRoutes);
+
 app.use("/api/admin", adminRoutes);
+app.use("/admin", adminRoutes);
 
 
 // ===============================
