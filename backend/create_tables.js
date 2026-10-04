@@ -1,31 +1,38 @@
 const { Client } = require('pg');
 
-// PASTE YOUR RENDER EXTERNAL DATABASE URL BELOW
-const DATABASE_URL = process.argv[2];
-
-if (!DATABASE_URL) {
-    console.error('Usage: node create_tables.js <RENDER_EXTERNAL_DATABASE_URL>');
-    process.exit(1);
-}
+const DATABASE_URL = 'postgresql://blood_bridge_db_kdjr_user:8LS25a5ZUoSch78ftrNin0shYMjVOX47@dpg-db1644navr4c73aetl80-a.singapore-postgres.render.com/blood_bridge_db_kdjr';
 
 const client = new Client({
     connectionString: DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-async function createTables() {
+async function recreateTables() {
     try {
         await client.connect();
         console.log('✅ Connected to Render DB');
 
+        // Drop all in reverse order
         await client.query(`
-            CREATE TABLE IF NOT EXISTS users (
+            DROP TABLE IF EXISTS request_fulfillments CASCADE;
+            DROP TABLE IF EXISTS blood_requests CASCADE;
+            DROP TABLE IF EXISTS donations CASCADE;
+            DROP TABLE IF EXISTS blood_inventory CASCADE;
+            DROP TABLE IF EXISTS blood_banks CASCADE;
+            DROP TABLE IF EXISTS recipients CASCADE;
+            DROP TABLE IF EXISTS donors CASCADE;
+            DROP TABLE IF EXISTS users CASCADE;
+        `);
+        console.log('✅ Old tables dropped');
+
+        await client.query(`
+            CREATE TABLE users (
                 user_id SERIAL PRIMARY KEY,
                 full_name VARCHAR(255) NOT NULL,
                 email VARCHAR(255) UNIQUE NOT NULL,
                 phone VARCHAR(50) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
-                role VARCHAR(50) NOT NULL CHECK (role IN ('donor', 'recipient', 'blood_bank')),
+                role VARCHAR(50) NOT NULL CHECK (role IN ('donor', 'recipient', 'blood_bank', 'admin')),
                 city VARCHAR(100),
                 state VARCHAR(100),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -35,12 +42,13 @@ async function createTables() {
         console.log('✅ users table created');
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS donors (
+            CREATE TABLE donors (
                 donor_id SERIAL PRIMARY KEY,
                 user_id INT UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
                 donor_name VARCHAR(255),
-                blood_type VARCHAR(10) NOT NULL,
+                blood_group VARCHAR(10),
                 date_of_birth DATE,
+                gender VARCHAR(20),
                 weight_kg NUMERIC,
                 medical_conditions TEXT,
                 id_proof_number VARCHAR(100),
@@ -54,11 +62,12 @@ async function createTables() {
         console.log('✅ donors table created');
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS recipients (
+            CREATE TABLE recipients (
                 recipient_id SERIAL PRIMARY KEY,
                 user_id INT UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
                 recipient_name VARCHAR(255),
-                blood_type VARCHAR(10) NOT NULL,
+                blood_group VARCHAR(10),
+                medical_reason TEXT,
                 hospital_name VARCHAR(255),
                 contact_person VARCHAR(255),
                 contact_phone VARCHAR(50),
@@ -71,8 +80,8 @@ async function createTables() {
         console.log('✅ recipients table created');
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS blood_banks (
-                bank_id SERIAL PRIMARY KEY,
+            CREATE TABLE blood_banks (
+                blood_bank_id SERIAL PRIMARY KEY,
                 user_id INT UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
                 bank_name VARCHAR(255) NOT NULL,
                 license_number VARCHAR(100) UNIQUE NOT NULL,
@@ -83,6 +92,7 @@ async function createTables() {
                 phone VARCHAR(50),
                 email VARCHAR(255),
                 operating_hours VARCHAR(100),
+                verified BOOLEAN DEFAULT false,
                 is_active BOOLEAN DEFAULT true,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -90,22 +100,22 @@ async function createTables() {
         console.log('✅ blood_banks table created');
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS blood_inventory (
+            CREATE TABLE blood_inventory (
                 inventory_id SERIAL PRIMARY KEY,
-                bank_id INT REFERENCES blood_banks(bank_id) ON DELETE CASCADE,
-                blood_type VARCHAR(10) NOT NULL,
+                blood_bank_id INT REFERENCES blood_banks(blood_bank_id) ON DELETE CASCADE,
+                blood_group VARCHAR(10) NOT NULL,
                 units_available INT DEFAULT 0,
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(bank_id, blood_type)
+                UNIQUE(blood_bank_id, blood_group)
             );
         `);
         console.log('✅ blood_inventory table created');
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS blood_requests (
+            CREATE TABLE blood_requests (
                 request_id SERIAL PRIMARY KEY,
                 recipient_id INT REFERENCES recipients(recipient_id) ON DELETE CASCADE,
-                blood_type VARCHAR(10) NOT NULL,
+                blood_group VARCHAR(10) NOT NULL,
                 units_needed INT NOT NULL,
                 urgency_level VARCHAR(50) DEFAULT 'normal',
                 hospital_name VARCHAR(255),
@@ -118,11 +128,11 @@ async function createTables() {
         console.log('✅ blood_requests table created');
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS donations (
+            CREATE TABLE donations (
                 donation_id SERIAL PRIMARY KEY,
                 donor_id INT REFERENCES donors(donor_id) ON DELETE CASCADE,
-                bank_id INT REFERENCES blood_banks(bank_id) ON DELETE SET NULL,
-                blood_type VARCHAR(10) NOT NULL,
+                blood_bank_id INT REFERENCES blood_banks(blood_bank_id) ON DELETE SET NULL,
+                blood_group VARCHAR(10) NOT NULL,
                 units_donated INT DEFAULT 1,
                 donation_date DATE DEFAULT CURRENT_DATE,
                 status VARCHAR(50) DEFAULT 'completed',
@@ -133,10 +143,10 @@ async function createTables() {
         console.log('✅ donations table created');
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS request_fulfillments (
+            CREATE TABLE request_fulfillments (
                 fulfillment_id SERIAL PRIMARY KEY,
                 request_id INT REFERENCES blood_requests(request_id) ON DELETE CASCADE,
-                bank_id INT REFERENCES blood_banks(bank_id) ON DELETE SET NULL,
+                blood_bank_id INT REFERENCES blood_banks(blood_bank_id) ON DELETE SET NULL,
                 donor_id INT REFERENCES donors(donor_id) ON DELETE SET NULL,
                 units_provided INT NOT NULL,
                 fulfilled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -145,7 +155,7 @@ async function createTables() {
         `);
         console.log('✅ request_fulfillments table created');
 
-        console.log('\n🎉 ALL TABLES CREATED SUCCESSFULLY!');
+        console.log('\n🎉 ALL TABLES RECREATED WITH CORRECT SCHEMA!');
     } catch (err) {
         console.error('❌ Error:', err.message);
     } finally {
@@ -153,4 +163,4 @@ async function createTables() {
     }
 }
 
-createTables();
+recreateTables();

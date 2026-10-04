@@ -77,7 +77,7 @@ const registerUser = async (req, res) => {
         newUser.role = newUser.role.toLowerCase();
 
         // Auto-create role specific entries with all new columns
-        if (dbRole === 'DONOR') {
+        if (dbRole === 'donor') {
             const {
                 blood_group, date_of_birth, gender,
                 weight_kg, medical_conditions, id_proof_number
@@ -125,7 +125,7 @@ const registerUser = async (req, res) => {
             );
 
 
-        } else if (dbRole === 'RECIPIENT') {
+        } else if (dbRole === 'recipient') {
             const {
                 blood_group, medical_reason,
                 hospital_name, doctor_name,
@@ -158,7 +158,7 @@ const registerUser = async (req, res) => {
                 ]
             );
 
-        } else if (dbRole === 'BLOOD_BANK') {
+        } else if (dbRole === 'blood_bank') {
             const {
                 bank_name, license_number, address,
                 bank_phone, bank_email, operating_hours, pincode
