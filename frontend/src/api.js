@@ -1,43 +1,14 @@
 import axios from 'axios';
 
-// Smart dynamic API resolution function
-function getBaseURL() {
-    const envUrl = import.meta.env.VITE_API_BASE_URL;
-    if (envUrl && envUrl !== 'undefined' && envUrl.trim() !== '') {
-        return envUrl;
-    }
-
-    // Check if browser is running locally
-    if (typeof window !== 'undefined') {
-        const hostname = window.location.hostname;
-        if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return 'http://localhost:5000/api';
-        }
-    }
-
-    // Production Vercel Backend URL
-    return 'https://blood-bridge-backend-eight.vercel.app/api';
-}
-
-let rawBaseURL = getBaseURL();
-rawBaseURL = rawBaseURL.replace(/\/+$/, '');
-if (!rawBaseURL.endsWith('/api')) {
-    rawBaseURL = `${rawBaseURL}/api`;
-}
-
 const API = axios.create({
+    baseURL: 'https://bloodbridge-a-digital-network-for-donors-lx0i.onrender.com',
     headers: {
         'Content-Type': 'application/json'
     }
 });
 
-// Interceptor to construct absolute request URLs and attach JWT token
+// Interceptor to add JWT token to requests
 API.interceptors.request.use((config) => {
-    if (config.url && !config.url.startsWith('http://') && !config.url.startsWith('https://')) {
-        const cleanPath = config.url.replace(/^\/+/, '');
-        config.url = `${rawBaseURL}/${cleanPath}`;
-    }
-
     const token = localStorage.getItem('token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
