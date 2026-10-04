@@ -15,8 +15,8 @@ function getBaseURL() {
         }
     }
 
-    // Production cloud fallback (Exact Render backend URL)
-    return 'https://bloodbridge-a-digital-network-for-donors-lx0i.onrender.com/api';
+    // Production Vercel Backend URL
+    return 'https://blood-bridge-backend-eight.vercel.app/api';
 }
 
 let rawBaseURL = getBaseURL();
