@@ -29,7 +29,7 @@ const registerUser = async (req, res) => {
             });
         }
 
-        const dbRole = role.toUpperCase();
+        const dbRole = role.toLowerCase();
 
         // Check whether email or phone already exists
         const existingUser = await pool.query(
