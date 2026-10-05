@@ -3,7 +3,10 @@ const {
     getStats,
     getRecentRequests,
     getRecentDonations,
-    getAllUsers
+    getAllUsers,
+    getAllDonors,
+    getAllRecipients,
+    getAllBloodBanks
 } = require("../controllers/adminController");
 const authenticateToken = require("../middleware/authMiddleware");
 
@@ -13,5 +16,8 @@ router.get("/stats", authenticateToken, getStats);
 router.get("/recent-requests", authenticateToken, getRecentRequests);
 router.get("/recent-donations", authenticateToken, getRecentDonations);
 router.get("/users", authenticateToken, getAllUsers);
+router.get("/donors", authenticateToken, getAllDonors);
+router.get("/recipients", authenticateToken, getAllRecipients);
+router.get("/blood-banks", authenticateToken, getAllBloodBanks);
 
 module.exports = router;
