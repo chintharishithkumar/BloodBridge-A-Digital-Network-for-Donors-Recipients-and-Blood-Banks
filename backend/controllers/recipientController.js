@@ -298,10 +298,61 @@ const updateRecipientProfile = async (req, res) => {
     }
 };
 
+// Get available cities dynamically (with optional blood_group filter)
+const getCities = async (req, res) => {
+    try {
+        const { blood_group } = req.query;
+
+        let query;
+        let params = [];
+
+        if (blood_group) {
+            query = `
+                SELECT DISTINCT city FROM (
+                    SELECT u.city FROM donors d JOIN users u ON d.user_id = u.user_id WHERE d.is_available = true AND d.blood_group = $1 AND u.city IS NOT NULL AND TRIM(u.city) != ''
+                    UNION
+                    SELECT bb.city FROM blood_inventory bi JOIN blood_banks bb ON bi.blood_bank_id = bb.blood_bank_id WHERE bi.units_available > 0 AND bi.blood_group = $1 AND bb.city IS NOT NULL AND TRIM(bb.city) != ''
+                    UNION
+                    SELECT u.city FROM users u WHERE u.city IS NOT NULL AND TRIM(u.city) != ''
+                ) cities
+                ORDER BY city ASC
+            `;
+            params = [blood_group];
+        } else {
+            query = `
+                SELECT DISTINCT city FROM (
+                    SELECT city FROM users WHERE city IS NOT NULL AND TRIM(city) != ''
+                    UNION
+                    SELECT city FROM blood_banks WHERE city IS NOT NULL AND TRIM(city) != ''
+                ) cities
+                ORDER BY city ASC
+            `;
+        }
+
+        const result = await pool.query(query, params);
+        let cities = result.rows.map(r => r.city).filter(Boolean);
+
+        // Default cities list fallback
+        const defaultCities = ["Hyderabad", "Mumbai", "Delhi", "Bengaluru", "Chennai", "Kolkata", "Pune", "Ahmedabad", "Jaipur", "Lucknow"];
+        const citySet = new Set([...cities, ...defaultCities]);
+        const sortedCities = Array.from(citySet).sort();
+
+        res.json({
+            status: "success",
+            cities: sortedCities
+        });
+    } catch (error) {
+        console.error("Get cities error:", error);
+        res.status(500).json({ status: "error", message: "Server error fetching cities" });
+    }
+};
+
 module.exports = {
     searchBlood,
     createRequest,
     getMyRequests,
     getRecipientProfile,
-    updateRecipientProfile
+    updateRecipientProfile,
+    getCities
 };
+

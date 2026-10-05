@@ -13,6 +13,7 @@ export default function Home() {
     });
     const [searchCity, setSearchCity] = useState('');
     const [searchGroup, setSearchGroup] = useState('O+');
+    const [availableCities, setAvailableCities] = useState([]);
 
     useEffect(() => {
         API.get('/admin/stats')
@@ -23,6 +24,16 @@ export default function Home() {
             })
             .catch(() => {});
     }, []);
+
+    useEffect(() => {
+        API.get(`/recipients/cities?blood_group=${encodeURIComponent(searchGroup)}`)
+            .then(res => {
+                if (res.data.status === 'success' && res.data.cities) {
+                    setAvailableCities(res.data.cities);
+                }
+            })
+            .catch(() => {});
+    }, [searchGroup]);
 
     const handleQuickSearch = (e) => {
         e.preventDefault();
@@ -70,16 +81,39 @@ export default function Home() {
                             <label><MapPin size={14} color="#e63946" /> City / Location</label>
                             <input 
                                 type="text"
-                                placeholder="e.g. Hyderabad"
+                                list="home-available-cities"
+                                placeholder="Select or type city..."
                                 value={searchCity}
                                 onChange={(e) => setSearchCity(e.target.value)}
                                 className="form-control"
                             />
+                            <datalist id="home-available-cities">
+                                {availableCities.map(c => (
+                                    <option key={c} value={c} />
+                                ))}
+                            </datalist>
                         </div>
                         <button type="submit" className="btn btn-primary">
                             <Search size={18} /> Search Stock
                         </button>
                     </div>
+
+                    {availableCities.length > 0 && (
+                        <div className="available-cities-chips" style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', opacity: 0.85, fontWeight: 500 }}>Available Cities for {searchGroup}:</span>
+                            {availableCities.slice(0, 8).map(c => (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => setSearchCity(c)}
+                                    className={`badge ${searchCity === c ? 'badge-blood' : 'badge-secondary'}`}
+                                    style={{ cursor: 'pointer', border: 'none', transition: 'all 0.2s' }}
+                                >
+                                    📍 {c}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </form>
             </section>
 

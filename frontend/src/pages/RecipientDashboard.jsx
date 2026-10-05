@@ -22,16 +22,21 @@ export default function RecipientDashboard() {
     const [donors, setDonors] = useState([]);
     const [searched, setSearched] = useState(false);
 
+    // Available cities
+    const [availableCities, setAvailableCities] = useState([]);
+
     // My Requests
     const [myRequests, setMyRequests] = useState([]);
-    const [requestModal, setRequestModal] = useState(null); // target bank object
+    const [requestModal, setRequestModal] = useState(null); // target bank object or general request
     const [requestForm, setRequestForm] = useState({
+        blood_group: 'O+',
         units_required: 2,
         emergency: true,
         notes: '',
         hospital_name: '',
         patient_name: '',
-        required_by: ''
+        required_by: '',
+        blood_bank_id: null
     });
     const [submitting, setSubmitting] = useState(false);
 
@@ -50,6 +55,16 @@ export default function RecipientDashboard() {
         contact_person: '',
         contact_phone: ''
     });
+
+    useEffect(() => {
+        API.get(`/recipients/cities?blood_group=${encodeURIComponent(bloodGroup)}`)
+            .then(res => {
+                if (res.data.status === 'success' && res.data.cities) {
+                    setAvailableCities(res.data.cities);
+                }
+            })
+            .catch(() => {});
+    }, [bloodGroup]);
 
     const handleSearch = async (e) => {
         if (e) e.preventDefault();
@@ -127,19 +142,21 @@ export default function RecipientDashboard() {
         }
     };
 
-    const openRequestModal = (bank) => {
+    const openRequestModal = (bank = null) => {
         if (!user) {
             alert('Please login or select a Demo Profile to request blood');
             return;
         }
-        setRequestModal(bank);
+        setRequestModal(bank || { isGeneral: true, bank_name: 'General Emergency Network Request', blood_bank_id: null, units_available: 10 });
         setRequestForm({
+            blood_group: recipientProfile?.blood_group || bloodGroup || 'O+',
             units_required: 2,
             emergency: true,
-            notes: `Emergency request for ${bloodGroup} blood`,
-            hospital_name: '',
-            patient_name: '',
-            required_by: ''
+            notes: bank ? `Request for ${bloodGroup} blood from ${bank.bank_name}` : 'Emergency blood request broadcast',
+            hospital_name: recipientProfile?.hospital_name || '',
+            patient_name: recipientProfile?.recipient_name || recipientProfile?.full_name || user?.full_name || '',
+            required_by: '',
+            blood_bank_id: bank?.blood_bank_id || null
         });
     };
 
@@ -148,8 +165,8 @@ export default function RecipientDashboard() {
         setSubmitting(true);
         try {
             const payload = {
-                blood_bank_id: requestModal.blood_bank_id,
-                blood_group: bloodGroup,
+                blood_bank_id: requestForm.blood_bank_id || (requestModal?.blood_bank_id || null),
+                blood_group: requestForm.blood_group || bloodGroup,
                 units_required: requestForm.units_required,
                 emergency: requestForm.emergency,
                 notes: requestForm.notes,
@@ -161,7 +178,7 @@ export default function RecipientDashboard() {
             if (res.data.status === 'success') {
                 setRequestModal(null);
                 fetchMyRequests();
-                alert(`Blood request for ${requestForm.units_required} units of ${bloodGroup} submitted!`);
+                alert(`Blood request for ${requestForm.units_required} units of ${requestForm.blood_group || bloodGroup} submitted successfully!`);
             }
         } catch (err) {
             alert('Failed to submit request: ' + (err.response?.data?.message || err.message));
@@ -190,16 +207,34 @@ export default function RecipientDashboard() {
                     <h2>Recipient Dashboard</h2>
                     <p>Find available blood stock in blood banks or connect with nearby voluntary donors</p>
                 </div>
-                {user && (
-                    <button onClick={() => setShowProfileModal(true)} className="btn btn-secondary btn-sm">
-                        ✏️ Edit Recipient Profile
-                    </button>
-                )}
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {user ? (
+                        <>
+                            <button onClick={() => openRequestModal(null)} className="btn btn-primary btn-sm pulse-glow">
+                                <Send size={16} /> 🩸 Submit Blood Request
+                            </button>
+                            <button onClick={() => setShowProfileModal(true)} className="btn btn-secondary btn-sm">
+                                ✏️ Edit Profile
+                            </button>
+                        </>
+                    ) : (
+                        <button onClick={() => openRequestModal(null)} className="btn btn-primary btn-sm">
+                            <Send size={16} /> Submit Blood Request
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* RECIPIENT DASHBOARD FIND BLOOD CARD - Wireframe 4 */}
             <div className="recipient-card glass-panel">
-                <h3 className="card-section-title">Find Blood</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 className="card-section-title" style={{ margin: 0 }}>Find Blood</h3>
+                    {user && (
+                        <button onClick={() => openRequestModal(null)} className="btn btn-secondary btn-sm">
+                            <Send size={14} /> + New Request
+                        </button>
+                    )}
+                </div>
 
                 <form onSubmit={handleSearch} className="recipient-search-form">
                     <div className="form-row">
@@ -220,11 +255,17 @@ export default function RecipientDashboard() {
                             <label className="form-label"><MapPin size={16} color="#e63946" /> City:</label>
                             <input
                                 type="text"
+                                list="recipient-available-cities"
                                 value={city}
                                 onChange={e => setCity(e.target.value)}
-                                placeholder="[ Hyderabad ]"
+                                placeholder="Select or type city..."
                                 className="form-control"
                             />
+                            <datalist id="recipient-available-cities">
+                                {availableCities.map(c => (
+                                    <option key={c} value={c} />
+                                ))}
+                            </datalist>
                         </div>
                     </div>
 
@@ -232,6 +273,23 @@ export default function RecipientDashboard() {
                         <Search size={18} /> {searching ? 'SEARCHING...' : '[ SEARCH ]'}
                     </button>
                 </form>
+
+                {availableCities.length > 0 && (
+                    <div className="available-cities-chips" style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.85, fontWeight: 500 }}>Available Cities for {bloodGroup}:</span>
+                        {availableCities.map(c => (
+                            <button
+                                key={c}
+                                type="button"
+                                onClick={() => setCity(c)}
+                                className={`badge ${city === c ? 'badge-blood' : 'badge-secondary'}`}
+                                style={{ cursor: 'pointer', border: 'none', transition: 'all 0.2s' }}
+                            >
+                                📍 {c}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 <div className="card-divider"></div>
 
@@ -241,7 +299,14 @@ export default function RecipientDashboard() {
                         <h4>Blood Banks Availability</h4>
                         
                         {bloodBanks.length === 0 ? (
-                            <div className="empty-state-box">No blood banks with {bloodGroup} stock found in {city || 'selected location'}.</div>
+                            <div className="empty-state-box">
+                                <p>No blood banks with {bloodGroup} stock found in {city || 'selected location'}.</p>
+                                {user && (
+                                    <button onClick={() => openRequestModal(null)} className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }}>
+                                        <Send size={14} /> Submit Direct Emergency Request
+                                    </button>
+                                )}
+                            </div>
                         ) : (
                             <div className="results-list">
                                 {bloodBanks.map(bank => (
@@ -290,6 +355,13 @@ export default function RecipientDashboard() {
                                             <div><MapPin size={14} /> {d.city}, {d.state}</div>
                                             <div><Phone size={14} /> {d.phone}</div>
                                             <div className="status-chip available"><CheckCircle size={12} /> AVAILABLE</div>
+                                            <button 
+                                                onClick={() => openRequestModal(null)} 
+                                                className="btn btn-secondary btn-sm"
+                                                style={{ width: '100%', marginTop: '0.5rem' }}
+                                            >
+                                                <Send size={12} /> Request Donor
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -302,9 +374,20 @@ export default function RecipientDashboard() {
             {/* MY BLOOD REQUESTS TRACKER */}
             {user && (
                 <div className="recipient-requests-card glass-panel" style={{ marginTop: '2rem' }}>
-                    <h3>My Submitted Blood Requests</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h3 style={{ margin: 0 }}>My Submitted Blood Requests</h3>
+                        <button onClick={() => openRequestModal(null)} className="btn btn-primary btn-sm">
+                            <Send size={14} /> + Submit New Request
+                        </button>
+                    </div>
+
                     {myRequests.length === 0 ? (
-                        <p className="text-muted">You have not submitted any blood requests yet.</p>
+                        <div className="empty-state-box">
+                            <p>You have not submitted any blood requests yet.</p>
+                            <button onClick={() => openRequestModal(null)} className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }}>
+                                <Send size={14} /> Submit Blood Request Now
+                            </button>
+                        </div>
                     ) : (
                         <div className="custom-table-container">
                             <table className="custom-table">
@@ -353,32 +436,67 @@ export default function RecipientDashboard() {
             {requestModal && (
                 <div className="modal-overlay">
                     <div className="modal-content modal-lg">
-                        <h3>🩸 Request Blood from {requestModal.bank_name}</h3>
-                        <p className="modal-subtitle">Blood group: <strong className="highlight-red">{bloodGroup}</strong> | Available: <strong>{requestModal.units_available} units</strong></p>
+                        <h3>🩸 {requestModal.bank_name ? `Request Blood from ${requestModal.bank_name}` : 'Submit Emergency Blood Request'}</h3>
+                        <p className="modal-subtitle">
+                            {requestModal.units_available !== undefined ? (
+                                <>Available Stock: <strong>{requestModal.units_available} units</strong></>
+                            ) : (
+                                <>Broadcast your blood requirement across all blood banks and voluntary donors</>
+                            )}
+                        </p>
 
                         <form onSubmit={handleRequestSubmit}>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label className="form-label">👤 Patient Name</label>
-                                    <input type="text" value={requestForm.patient_name}
+                                    <label className="form-label">🩸 Blood Group *</label>
+                                    <select
+                                        value={requestForm.blood_group}
+                                        onChange={e => setRequestForm({ ...requestForm, blood_group: e.target.value })}
+                                        className="form-control"
+                                    >
+                                        {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
+                                            <option key={bg} value={bg}>{bg}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">🏥 Target Blood Bank (Optional)</label>
+                                    <select
+                                        value={requestForm.blood_bank_id || ''}
+                                        onChange={e => setRequestForm({ ...requestForm, blood_bank_id: e.target.value ? Number(e.target.value) : null })}
+                                        className="form-control"
+                                    >
+                                        <option value="">-- General Request (Broadcast to All) --</option>
+                                        {bloodBanks.map(b => (
+                                            <option key={b.blood_bank_id} value={b.blood_bank_id}>
+                                                {b.bank_name} ({b.city} - {b.units_available} units)
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">👤 Patient Name *</label>
+                                    <input type="text" required value={requestForm.patient_name}
                                         onChange={e => setRequestForm({ ...requestForm, patient_name: e.target.value })}
                                         placeholder="Patient's full name" className="form-control" />
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">🏥 Hospital Name</label>
-                                    <input type="text" value={requestForm.hospital_name}
+                                    <label className="form-label">🏥 Hospital Name & Address *</label>
+                                    <input type="text" required value={requestForm.hospital_name}
                                         onChange={e => setRequestForm({ ...requestForm, hospital_name: e.target.value })}
                                         placeholder="AIIMS Hyderabad" className="form-control" />
                                 </div>
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label className="form-label">Units Required</label>
-                                    <input type="number" min="1" max={requestModal.units_available || 10}
+                                    <label className="form-label">Units Required *</label>
+                                    <input type="number" min="1" max="20"
                                         value={requestForm.units_required}
-                                        onChange={e => setRequestForm({ ...requestForm, units_required: parseInt(e.target.value) })}
+                                        onChange={e => setRequestForm({ ...requestForm, units_required: parseInt(e.target.value) || 1 })}
                                         className="form-control" required />
-                                    <small className="text-muted">Max: {requestModal.units_available} units available</small>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">📅 Required By Date</label>
@@ -397,7 +515,7 @@ export default function RecipientDashboard() {
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label className="form-label">📝 Additional Notes</label>
+                                <label className="form-label">📝 Additional Notes / Medical Reason</label>
                                 <textarea rows="2" value={requestForm.notes}
                                     onChange={e => setRequestForm({ ...requestForm, notes: e.target.value })}
                                     placeholder="Room number, condition details, doctor's note..."

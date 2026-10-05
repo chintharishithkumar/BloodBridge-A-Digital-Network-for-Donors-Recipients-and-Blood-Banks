@@ -31,6 +31,20 @@ const initDb = async () => {
             ALTER TABLE blood_banks ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
         `);
 
+        // Blood requests table columns
+        await pool.query(`
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS blood_bank_id INT REFERENCES blood_banks(blood_bank_id) ON DELETE SET NULL;
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS units_required INT DEFAULT 1;
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS emergency BOOLEAN DEFAULT false;
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS required_by DATE;
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS notes TEXT;
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS hospital_name VARCHAR(255);
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS fulfilled_date TIMESTAMP;
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS rejected_reason TEXT;
+        `);
+
         // Add UNIQUE constraints on user_id if not present
         await pool.query(`
             DO $$
@@ -63,10 +77,115 @@ const initDb = async () => {
             UPDATE donors SET next_eligible_date = CURRENT_DATE WHERE next_eligible_date IS NULL;
         `);
 
+        // Seed default Demo Accounts if missing
+        await seedDemoAccounts();
+
         console.log("✅ DB schema verified and auto-updated successfully.");
     } catch (err) {
         console.error("❌ DB init schema error:", err);
     }
 };
 
+const bcrypt = require("bcrypt");
+
+const seedDemoAccounts = async () => {
+    const defaultPasswordHash = await bcrypt.hash('password123', 10);
+    const demoUsers = [
+        {
+            full_name: 'John Donor',
+            email: 'john.donor@example.com',
+            phone: '9876543210',
+            role: 'donor',
+            city: 'Hyderabad',
+            state: 'Telangana',
+            blood_group: 'O+'
+        },
+        {
+            full_name: 'Rahul Recipient',
+            email: 'rahul.recipient@example.com',
+            phone: '9876543211',
+            role: 'recipient',
+            city: 'Hyderabad',
+            state: 'Telangana',
+            blood_group: 'B+'
+        },
+        {
+            full_name: 'Red Cross Blood Bank',
+            email: 'hyd.redcross@bloodbank.com',
+            phone: '9876543212',
+            role: 'blood_bank',
+            city: 'Hyderabad',
+            state: 'Telangana',
+            bank_name: 'Red Cross Hyderabad',
+            license_number: 'BB-HYD-001'
+        },
+        {
+            full_name: 'System Admin',
+            email: 'admin@bloodbridge.com',
+            phone: '9876543213',
+            role: 'admin',
+            city: 'Hyderabad',
+            state: 'Telangana'
+        }
+    ];
+
+    for (const demo of demoUsers) {
+        let userRes = await pool.query("SELECT * FROM users WHERE LOWER(email) = LOWER($1)", [demo.email]);
+        let userId;
+
+        if (userRes.rows.length === 0) {
+            const insRes = await pool.query(
+                `INSERT INTO users (full_name, email, phone, password_hash, role, city, state)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
+                 RETURNING user_id`,
+                [demo.full_name, demo.email, demo.phone, defaultPasswordHash, demo.role, demo.city, demo.state]
+            );
+            userId = insRes.rows[0].user_id;
+        } else {
+            userId = userRes.rows[0].user_id;
+            // Always update password hash to ensure password123 works
+            await pool.query("UPDATE users SET password_hash = $1 WHERE user_id = $2", [defaultPasswordHash, userId]);
+        }
+
+        // Ensure role table entries exist
+        if (demo.role === 'donor') {
+            await pool.query(
+                `INSERT INTO donors (user_id, blood_group, donor_name, is_available)
+                 VALUES ($1, $2, $3, true)
+                 ON CONFLICT (user_id) DO UPDATE SET blood_group = EXCLUDED.blood_group, donor_name = EXCLUDED.donor_name`,
+                [userId, demo.blood_group, demo.full_name]
+            );
+        } else if (demo.role === 'recipient') {
+            await pool.query(
+                `INSERT INTO recipients (user_id, blood_group, recipient_name, medical_reason, hospital_name)
+                 VALUES ($1, $2, $3, 'Emergency Surgery', 'Apollo Hospital Hyderabad')
+                 ON CONFLICT (user_id) DO UPDATE SET blood_group = EXCLUDED.blood_group, recipient_name = EXCLUDED.recipient_name`,
+                [userId, demo.blood_group, demo.full_name]
+            );
+        } else if (demo.role === 'blood_bank') {
+            const bbRes = await pool.query(
+                `INSERT INTO blood_banks (user_id, bank_name, license_number, address, city, state, phone, email, verified, is_active)
+                 VALUES ($1, $2, $3, 'MG Road, Secunderabad', $4, $5, $6, $7, true, true)
+                 ON CONFLICT (user_id) DO UPDATE SET bank_name = EXCLUDED.bank_name
+                 RETURNING blood_bank_id`,
+                [userId, demo.bank_name, demo.license_number, demo.city, demo.state, demo.phone, demo.email]
+            );
+            
+            const bankId = bbRes.rows[0]?.blood_bank_id;
+            if (bankId) {
+                const groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+                for (const bg of groups) {
+                    await pool.query(
+                        `INSERT INTO blood_inventory (blood_bank_id, blood_group, units_available, last_updated)
+                         VALUES ($1, $2, 10, NOW())
+                         ON CONFLICT (blood_bank_id, blood_group) DO UPDATE SET units_available = GREATEST(blood_inventory.units_available, 10)`,
+                        [bankId, bg]
+                    );
+                }
+            }
+        }
+    }
+};
+
 module.exports = initDb;
+
