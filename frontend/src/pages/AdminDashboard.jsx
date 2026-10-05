@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
     Heart, Users, Building2, Activity, RefreshCw,
@@ -54,7 +54,7 @@ export default function AdminDashboard() {
         }
     };
 
-    const fetchDonors = useCallback(async () => {
+    const fetchDonors = async () => {
         setTabLoading(true);
         try {
             const res = await API.get('/admin/donors');
@@ -64,9 +64,9 @@ export default function AdminDashboard() {
         } finally {
             setTabLoading(false);
         }
-    }, []);
+    };
 
-    const fetchRecipients = useCallback(async () => {
+    const fetchRecipients = async () => {
         setTabLoading(true);
         try {
             const res = await API.get('/admin/recipients');
@@ -76,9 +76,9 @@ export default function AdminDashboard() {
         } finally {
             setTabLoading(false);
         }
-    }, []);
+    };
 
-    const fetchBloodBanks = useCallback(async () => {
+    const fetchBloodBanks = async () => {
         setTabLoading(true);
         try {
             const res = await API.get('/admin/blood-banks');
@@ -88,9 +88,9 @@ export default function AdminDashboard() {
         } finally {
             setTabLoading(false);
         }
-    }, []);
+    };
 
-    const fetchUsers = useCallback(async () => {
+    const fetchUsers = async () => {
         setTabLoading(true);
         try {
             const res = await API.get('/admin/users');
@@ -100,9 +100,9 @@ export default function AdminDashboard() {
         } finally {
             setTabLoading(false);
         }
-    }, []);
+    };
 
-    const fetchBloodRequests = useCallback(async () => {
+    const fetchBloodRequests = async () => {
         setTabLoading(true);
         try {
             const res = await API.get('/admin/recent-requests');
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
         } finally {
             setTabLoading(false);
         }
-    }, []);
+    };
 
     const fetchAdminData = async () => {
         setLoading(true);
@@ -136,18 +136,26 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         fetchAdminData();
-    }, []);
+        // Auto-refresh every 30 seconds to catch new registrations
+        const interval = setInterval(() => {
+            fetchStats();
+        }, 30000);
+        return () => clearInterval(interval);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         setSearchQuery('');
+        fetchStats(); // Always refresh counts on tab switch
         switch (activeTab) {
             case 'Donors': fetchDonors(); break;
             case 'Recipients': fetchRecipients(); break;
             case 'Blood Banks': fetchBloodBanks(); break;
             case 'All Users': fetchUsers(); break;
             case 'Blood Requests': fetchBloodRequests(); break;
+            default: fetchOverview(); break;
         }
-    }, [activeTab]);
+    }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const getStatusBadge = (status) => {
         const s = (status || '').toUpperCase();

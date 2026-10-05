@@ -209,8 +209,8 @@ const getMyRequests = async (req, res) => {
             `SELECT
                 br.request_id,
                 br.blood_group,
-                COALESCE(br.units_required, br.units_needed, 1) AS units_required,
-                COALESCE(br.request_date, br.created_at) AS request_date,
+                br.units_required,
+                br.request_date,
                 br.status,
                 br.emergency,
                 br.required_by,
@@ -225,7 +225,7 @@ const getMyRequests = async (req, res) => {
              FROM blood_requests br
              LEFT JOIN blood_banks bb ON br.blood_bank_id = bb.blood_bank_id
              WHERE br.recipient_id = $1
-             ORDER BY COALESCE(br.request_date, br.created_at) DESC`,
+             ORDER BY br.request_date DESC`,
             [recipientId]
         );
 
