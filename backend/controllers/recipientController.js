@@ -95,6 +95,24 @@ const createRequest = async (req, res) => {
             });
         }
 
+        // Ensure schema is up to date before inserting (idempotent migration)
+        try {
+            await pool.query(`
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS blood_bank_id INT REFERENCES blood_banks(blood_bank_id) ON DELETE SET NULL;
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS units_required INT DEFAULT 1;
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS emergency BOOLEAN DEFAULT false;
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS required_by DATE;
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS hospital_name VARCHAR(255);
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS fulfilled_date TIMESTAMP;
+                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS rejected_reason TEXT;
+            `);
+        } catch (migErr) {
+            // Ignore migration errors — columns may already exist
+            console.warn("Schema migration notice (non-fatal):", migErr.message);
+        }
+
         // Check or create recipient record
         let recipientRes = await pool.query(
             "SELECT recipient_id FROM recipients WHERE user_id = $1",
@@ -106,6 +124,7 @@ const createRequest = async (req, res) => {
             const newRec = await pool.query(
                 `INSERT INTO recipients (user_id, blood_group, medical_reason, hospital_name)
                  VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (user_id) DO UPDATE SET blood_group = EXCLUDED.blood_group
                  RETURNING recipient_id`,
                 [userId, blood_group, notes || 'Blood request', hospital_name || null]
             );
@@ -114,25 +133,46 @@ const createRequest = async (req, res) => {
             recipientId = recipientRes.rows[0].recipient_id;
         }
 
-        const result = await pool.query(
-            `INSERT INTO blood_requests
-            (recipient_id, blood_bank_id, blood_group, units_required,
-             request_date, status, emergency, required_by, notes,
-             hospital_name, patient_name)
-            VALUES ($1, $2, $3, $4, NOW(), 'PENDING', $5, $6, $7, $8, $9)
-            RETURNING *`,
-            [
-                recipientId,
-                blood_bank_id || null,
-                blood_group,
-                units_required,
-                emergency || false,
-                required_by || null,
-                notes || '',
-                hospital_name || null,
-                patient_name || null
-            ]
-        );
+        // Try to insert with full new schema first
+        let result;
+        try {
+            result = await pool.query(
+                `INSERT INTO blood_requests
+                (recipient_id, blood_bank_id, blood_group, units_required,
+                 request_date, status, emergency, required_by, notes,
+                 hospital_name, patient_name)
+                VALUES ($1, $2, $3, $4, NOW(), 'PENDING', $5, $6, $7, $8, $9)
+                RETURNING *`,
+                [
+                    recipientId,
+                    blood_bank_id || null,
+                    blood_group,
+                    units_required,
+                    emergency || false,
+                    required_by || null,
+                    notes || '',
+                    hospital_name || null,
+                    patient_name || null
+                ]
+            );
+        } catch (insertErr) {
+            // Fallback: try with minimal old-schema columns (units_needed + urgency_level)
+            console.warn("Full insert failed, trying fallback schema:", insertErr.message);
+            result = await pool.query(
+                `INSERT INTO blood_requests
+                (recipient_id, blood_group, units_needed, urgency_level, status, notes, hospital_name)
+                VALUES ($1, $2, $3, $4, 'pending', $5, $6)
+                RETURNING *`,
+                [
+                    recipientId,
+                    blood_group,
+                    units_required,
+                    emergency ? 'critical' : 'normal',
+                    notes || '',
+                    hospital_name || null
+                ]
+            );
+        }
 
         res.status(201).json({
             status: "success",
@@ -142,7 +182,10 @@ const createRequest = async (req, res) => {
 
     } catch (error) {
         console.error("Create blood request error:", error);
-        res.status(500).json({ status: "error", message: "Server error" });
+        res.status(500).json({
+            status: "error",
+            message: "Server error while submitting blood request: " + error.message
+        });
     }
 };
 
@@ -166,8 +209,8 @@ const getMyRequests = async (req, res) => {
             `SELECT
                 br.request_id,
                 br.blood_group,
-                br.units_required,
-                br.request_date,
+                COALESCE(br.units_required, br.units_needed, 1) AS units_required,
+                COALESCE(br.request_date, br.created_at) AS request_date,
                 br.status,
                 br.emergency,
                 br.required_by,
@@ -182,7 +225,7 @@ const getMyRequests = async (req, res) => {
              FROM blood_requests br
              LEFT JOIN blood_banks bb ON br.blood_bank_id = bb.blood_bank_id
              WHERE br.recipient_id = $1
-             ORDER BY br.request_date DESC`,
+             ORDER BY COALESCE(br.request_date, br.created_at) DESC`,
             [recipientId]
         );
 
