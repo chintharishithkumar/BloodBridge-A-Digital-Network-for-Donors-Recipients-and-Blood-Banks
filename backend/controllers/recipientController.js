@@ -120,22 +120,25 @@ const createRequest = async (req, res) => {
             recipientId = recipientRes.rows[0].recipient_id;
         }
 
+        const reqUnits = parseInt(units_required) || 1;
+
         // Try to insert with full schema
         let result;
         try {
             result = await pool.query(
                 `INSERT INTO blood_requests
-                (recipient_id, blood_bank_id, blood_group, units_required,
-                 request_date, status, emergency, required_by, notes,
+                (recipient_id, blood_bank_id, blood_group, units_required, units_needed,
+                 request_date, status, emergency, urgency_level, required_by, notes,
                  hospital_name, patient_name, contact_phone, location)
-                VALUES ($1, $2, $3, $4, NOW(), 'PENDING', $5, $6, $7, $8, $9, $10, $11)
+                VALUES ($1, $2, $3, $4, $4, NOW(), 'PENDING', $5, $6, $7, $8, $9, $10, $11, $12)
                 RETURNING *`,
                 [
                     recipientId,
                     blood_bank_id || null,
                     blood_group,
-                    units_required,
+                    reqUnits,
                     emergency || false,
+                    emergency ? 'critical' : 'normal',
                     required_by || null,
                     notes || '',
                     hospital_name || null,
@@ -148,13 +151,13 @@ const createRequest = async (req, res) => {
             console.warn("Full insert failed, trying fallback schema:", insertErr.message);
             result = await pool.query(
                 `INSERT INTO blood_requests
-                (recipient_id, blood_group, units_needed, urgency_level, status, notes, hospital_name)
-                VALUES ($1, $2, $3, $4, 'pending', $5, $6)
+                (recipient_id, blood_group, units_needed, units_required, urgency_level, status, notes, hospital_name)
+                VALUES ($1, $2, $3, $3, $4, 'pending', $5, $6)
                 RETURNING *`,
                 [
                     recipientId,
                     blood_group,
-                    units_required,
+                    reqUnits,
                     emergency ? 'critical' : 'normal',
                     notes || '',
                     hospital_name || null
@@ -168,7 +171,7 @@ const createRequest = async (req, res) => {
         await notifyDonorsAndBanks({
             request_id: newReq.request_id,
             blood_group: newReq.blood_group || blood_group,
-            units_required: newReq.units_required || units_required,
+            units_required: newReq.units_required || newReq.units_needed || reqUnits,
             emergency: newReq.emergency || emergency || false,
             hospital_name: newReq.hospital_name || hospital_name,
             patient_name: newReq.patient_name || patient_name || reqUser.full_name,
@@ -206,15 +209,17 @@ const createEmergencyRequest = async (req, res) => {
             });
         }
 
+        const reqUnits = parseInt(units_required, 10) || 1;
+
         const result = await pool.query(
             `INSERT INTO blood_requests
-            (recipient_id, blood_group, units_required, emergency, is_guest,
+            (recipient_id, blood_group, units_required, units_needed, emergency, urgency_level, is_guest,
              hospital_name, patient_name, contact_phone, location, notes, status, request_date)
-            VALUES (NULL, $1, $2, true, true, $3, $4, $5, $6, $7, 'PENDING', NOW())
+            VALUES (NULL, $1, $2, COALESCE($2, 1), true, 'critical', true, $3, $4, $5, $6, $7, 'PENDING', NOW())
             RETURNING *`,
             [
                 blood_group,
-                parseInt(units_required) || 1,
+                reqUnits,
                 hospital_name,
                 patient_name || 'Emergency Patient',
                 contact_phone,
