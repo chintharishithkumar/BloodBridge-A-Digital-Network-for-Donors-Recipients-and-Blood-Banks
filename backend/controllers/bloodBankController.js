@@ -165,9 +165,9 @@ const getBankRequests = async (req, res) => {
                 u.phone as recipient_phone,
                 u.city as recipient_city
              FROM blood_requests br
-             JOIN recipients r ON br.recipient_id = r.recipient_id
-             JOIN users u ON r.user_id = u.user_id
-             WHERE br.blood_bank_id = $1 OR (br.emergency = true AND br.blood_bank_id IS NULL AND br.status = 'PENDING')
+             LEFT JOIN recipients r ON br.recipient_id = r.recipient_id
+             LEFT JOIN users u ON r.user_id = u.user_id
+             WHERE br.blood_bank_id = $1 OR (br.emergency = true AND br.blood_bank_id IS NULL AND UPPER(br.status) = 'PENDING')
              ORDER BY br.request_id DESC`,
             [bankId]
         );
