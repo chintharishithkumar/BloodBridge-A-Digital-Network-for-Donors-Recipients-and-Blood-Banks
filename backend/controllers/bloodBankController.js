@@ -167,7 +167,7 @@ const getBankRequests = async (req, res) => {
              FROM blood_requests br
              JOIN recipients r ON br.recipient_id = r.recipient_id
              JOIN users u ON r.user_id = u.user_id
-             WHERE br.blood_bank_id = $1
+             WHERE br.blood_bank_id = $1 OR (br.emergency = true AND br.blood_bank_id IS NULL AND br.status = 'PENDING')
              ORDER BY br.request_id DESC`,
             [bankId]
         );
@@ -205,14 +205,14 @@ const updateRequestStatus = async (req, res) => {
 
         const bankId = bankRes.rows[0].blood_bank_id;
 
-        // Fetch request
+        // Fetch request (allow if it belongs to this bank OR if it's a global unassigned emergency)
         const reqRes = await pool.query(
-            "SELECT * FROM blood_requests WHERE request_id = $1 AND blood_bank_id = $2",
+            "SELECT * FROM blood_requests WHERE request_id = $1 AND (blood_bank_id = $2 OR (emergency = true AND blood_bank_id IS NULL))",
             [requestId, bankId]
         );
 
         if (reqRes.rows.length === 0) {
-            return res.status(404).json({ status: "error", message: "Blood request not found" });
+            return res.status(404).json({ status: "error", message: "Blood request not found or already claimed" });
         }
 
         const bloodReq = reqRes.rows[0];
@@ -237,18 +237,18 @@ const updateRequestStatus = async (req, res) => {
         let updateQuery, updateParams;
         if (status === 'APPROVED') {
             updateQuery = `UPDATE blood_requests
-                SET status = $1, fulfilled_date = NOW()
+                SET status = $1, fulfilled_date = NOW(), blood_bank_id = $3
                 WHERE request_id = $2 RETURNING *`;
-            updateParams = [status, requestId];
+            updateParams = [status, requestId, bankId];
         } else if (status === 'REJECTED') {
             const { rejected_reason } = req.body;
             updateQuery = `UPDATE blood_requests
-                SET status = $1, rejected_reason = $2
+                SET status = $1, rejected_reason = $2, blood_bank_id = $4
                 WHERE request_id = $3 RETURNING *`;
-            updateParams = [status, rejected_reason || null, requestId];
+            updateParams = [status, rejected_reason || null, requestId, bankId];
         } else {
-            updateQuery = "UPDATE blood_requests SET status = $1 WHERE request_id = $2 RETURNING *";
-            updateParams = [status, requestId];
+            updateQuery = "UPDATE blood_requests SET status = $1, blood_bank_id = $3 WHERE request_id = $2 RETURNING *";
+            updateParams = [status, requestId, bankId];
         }
 
         const updated = await pool.query(updateQuery, updateParams);
