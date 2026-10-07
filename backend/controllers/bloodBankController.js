@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const { notifyRequestStatusChange } = require("../services/notificationService");
+const { sendSMS } = require("../services/smsService");
 
 // Get blood bank profile & inventory
 const getInventory = async (req, res) => {
@@ -277,6 +278,13 @@ const updateRequestStatus = async (req, res) => {
                     bankName
                 }).catch(err => console.error("[Notify] Status change notification error:", err));
             }
+        } else {
+            // It's a guest emergency request, so just send an SMS directly
+            const statusStr = status === 'FULFILLED' ? 'FULFILLED' : status === 'APPROVED' ? 'APPROVED' : 'REJECTED';
+            const bankStr = bankName ? ` by ${bankName}` : '';
+            const rejectStr = status === 'REJECTED' && req.body.rejected_reason ? ` (${req.body.rejected_reason})` : '';
+            const smsText = `🚨 BLOOD BRIDGE UPDATE\nHello ${bloodReq.patient_name || 'Guest'}, your emergency blood request for ${bloodReq.blood_group} has been ${statusStr}${bankStr}${rejectStr}. - BloodBridge`;
+            sendSMS(bloodReq.contact_phone || 'demo', smsText).catch(err => console.error("[SMS] Guest request status SMS error:", err));
         }
 
         res.json({
