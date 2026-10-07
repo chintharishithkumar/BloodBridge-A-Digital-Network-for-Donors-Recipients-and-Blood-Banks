@@ -10,6 +10,7 @@ const donorRoutes = require("./routes/donorRoutes");
 const recipientRoutes = require("./routes/recipientRoutes");
 const bloodBankRoutes = require("./routes/bloodBankRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 // Authentication middleware
 const authenticateToken = require("./middleware/authMiddleware");
@@ -34,22 +35,12 @@ app.get("/", (req, res) => {
     });
 });
 
-
-// ===============================
-// HEALTH CHECK
-// ===============================
-
 app.get("/api/health", (req, res) => {
     res.json({
         status: "success",
         message: "Blood-Bridge API is working"
     });
 });
-
-
-// ===============================
-// DATABASE TEST
-// ===============================
 
 app.get("/api/db-test", async (req, res) => {
     try {
@@ -90,6 +81,9 @@ app.use("/blood-bank", bloodBankRoutes);
 
 app.use("/api/admin", adminRoutes);
 app.use("/admin", adminRoutes);
+
+app.use("/api/notifications", notificationRoutes);
+app.use("/notifications", notificationRoutes);
 
 
 // ===============================

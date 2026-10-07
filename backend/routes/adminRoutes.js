@@ -6,7 +6,8 @@ const {
     getAllUsers,
     getAllDonors,
     getAllRecipients,
-    getAllBloodBanks
+    getAllBloodBanks,
+    deleteUser
 } = require("../controllers/adminController");
 const authenticateToken = require("../middleware/authMiddleware");
 
@@ -19,5 +20,6 @@ router.get("/users", authenticateToken, getAllUsers);
 router.get("/donors", authenticateToken, getAllDonors);
 router.get("/recipients", authenticateToken, getAllRecipients);
 router.get("/blood-banks", authenticateToken, getAllBloodBanks);
+router.delete("/users/:userId", authenticateToken, deleteUser);
 
 module.exports = router;

@@ -31,8 +31,9 @@ const initDb = async () => {
             ALTER TABLE blood_banks ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
         `);
 
-        // Blood requests table columns
+        // Blood requests table columns & nullability
         await pool.query(`
+            ALTER TABLE blood_requests ALTER COLUMN recipient_id DROP NOT NULL;
             ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS blood_bank_id INT REFERENCES blood_banks(blood_bank_id) ON DELETE SET NULL;
             ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS units_required INT DEFAULT 1;
             ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
@@ -41,8 +42,25 @@ const initDb = async () => {
             ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS notes TEXT;
             ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS hospital_name VARCHAR(255);
             ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50);
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS location VARCHAR(255);
+            ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS is_guest BOOLEAN DEFAULT false;
             ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS fulfilled_date TIMESTAMP;
             ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS rejected_reason TEXT;
+        `);
+
+        // Notifications table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                notification_id SERIAL PRIMARY KEY,
+                user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+                title VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                type VARCHAR(50) DEFAULT 'normal_request',
+                request_id INT REFERENCES blood_requests(request_id) ON DELETE CASCADE,
+                is_read BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
 
         // Add UNIQUE constraints on user_id if not present

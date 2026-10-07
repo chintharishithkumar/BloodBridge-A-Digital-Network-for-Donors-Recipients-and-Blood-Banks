@@ -106,6 +106,13 @@ const createDonorProfile = async (req, res) => {
             });
         }
 
+        // Fetch full_name from users table to store as donor_name
+        const userRes = await pool.query(
+            "SELECT full_name FROM users WHERE user_id = $1",
+            [userId]
+        );
+        const donorName = userRes.rows.length > 0 ? userRes.rows[0].full_name : null;
+
         const nextEligible = new Date();
         nextEligible.setDate(nextEligible.getDate() + 90);
         const nextEligibleStr = nextEligible.toISOString().split('T')[0];
@@ -114,8 +121,8 @@ const createDonorProfile = async (req, res) => {
             `INSERT INTO donors
             (user_id, blood_group, date_of_birth, gender, is_available,
              weight_kg, medical_conditions, id_proof_number,
-             next_eligible_date, total_donations)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0)
+             next_eligible_date, total_donations, donor_name)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10)
             RETURNING *`,
             [
                 userId,
@@ -126,7 +133,8 @@ const createDonorProfile = async (req, res) => {
                 weight_kg || null,
                 medical_conditions || null,
                 id_proof_number || null,
-                nextEligibleStr
+                nextEligibleStr,
+                donorName
             ]
         );
 

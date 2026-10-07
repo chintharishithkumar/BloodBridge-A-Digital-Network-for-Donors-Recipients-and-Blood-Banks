@@ -211,6 +211,44 @@ const getAllBloodBanks = async (req, res) => {
     }
 };
 
+// Delete user by ID
+const deleteUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const currentUserId = req.user.user_id;
+
+        if (parseInt(userId) === currentUserId) {
+            return res.status(400).json({
+                status: "error",
+                message: "You cannot delete your own active admin account."
+            });
+        }
+
+        const result = await pool.query(
+            "DELETE FROM users WHERE user_id = $1 RETURNING user_id, full_name, email, role",
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                status: "error",
+                message: "User not found"
+            });
+        }
+
+        const deleted = result.rows[0];
+
+        res.json({
+            status: "success",
+            message: `User '${deleted.full_name}' (${deleted.role}) deleted successfully`,
+            user: deleted
+        });
+    } catch (error) {
+        console.error("Admin delete user error:", error);
+        res.status(500).json({ status: "error", message: "Server error deleting user" });
+    }
+};
+
 module.exports = {
     getStats,
     getRecentRequests,
@@ -218,5 +256,6 @@ module.exports = {
     getAllUsers,
     getAllDonors,
     getAllRecipients,
-    getAllBloodBanks
+    getAllBloodBanks,
+    deleteUser
 };

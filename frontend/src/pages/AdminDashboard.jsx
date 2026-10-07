@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import {
     Heart, Users, Building2, Activity, RefreshCw,
     CheckCircle, AlertTriangle, Clock, Droplet,
-    MapPin, Phone, Mail, ShieldCheck, User, Search
+    MapPin, Phone, Mail, ShieldCheck, User, Search, Trash2
 } from 'lucide-react';
 import API from '../api';
 
@@ -31,6 +31,23 @@ export default function AdminDashboard() {
     const [tabLoading, setTabLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [lastRefresh, setLastRefresh] = useState(null);
+
+    const handleDeleteUser = async (userId, userName) => {
+        if (!window.confirm(`Are you sure you want to delete user "${userName}" (ID #${userId})?\n\nThis will permanently remove their user record, role details, requests, and donations.`)) {
+            return;
+        }
+
+        try {
+            const res = await API.delete(`/admin/users/${userId}`);
+            if (res.data.status === 'success') {
+                alert(res.data.message);
+                handleRefresh();
+            }
+        } catch (err) {
+            console.error("Delete user error:", err);
+            alert(err.response?.data?.message || "Failed to delete user.");
+        }
+    };
 
     const fetchStats = async () => {
         try {
@@ -391,6 +408,7 @@ export default function AdminDashboard() {
                                                 <th>Total Donations</th>
                                                 <th>Next Eligible</th>
                                                 <th>Registered</th>
+                                                <th style={{ textAlign: 'center' }}>Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -412,6 +430,16 @@ export default function AdminDashboard() {
                                                     <td style={{ textAlign: 'center' }}>{d.total_donations || 0}</td>
                                                     <td style={{ fontSize: '0.8rem' }}>{d.next_eligible_date ? new Date(d.next_eligible_date).toLocaleDateString() : '-'}</td>
                                                     <td style={{ fontSize: '0.78rem', opacity: 0.7 }}>{d.created_at ? new Date(d.created_at).toLocaleDateString() : '-'}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            onClick={() => handleDeleteUser(d.user_id, d.full_name)}
+                                                            className="btn btn-secondary btn-sm"
+                                                            style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', padding: '3px 8px' }}
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2 size={13} /> Remove
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -448,6 +476,7 @@ export default function AdminDashboard() {
                                                 <th>Hospital</th>
                                                 <th>Location</th>
                                                 <th>Registered</th>
+                                                <th style={{ textAlign: 'center' }}>Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -462,6 +491,16 @@ export default function AdminDashboard() {
                                                     <td style={{ fontSize: '0.8rem' }}>{r.hospital_name || '-'}</td>
                                                     <td><MapPin size={12} /> {r.city}, {r.state}</td>
                                                     <td style={{ fontSize: '0.78rem', opacity: 0.7 }}>{r.created_at ? new Date(r.created_at).toLocaleDateString() : '-'}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            onClick={() => handleDeleteUser(r.user_id, r.full_name)}
+                                                            className="btn btn-secondary btn-sm"
+                                                            style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', padding: '3px 8px' }}
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2 size={13} /> Remove
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -498,6 +537,7 @@ export default function AdminDashboard() {
                                                 <th>Verified</th>
                                                 <th>Active</th>
                                                 <th>Registered</th>
+                                                <th style={{ textAlign: 'center' }}>Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -522,6 +562,16 @@ export default function AdminDashboard() {
                                                         }
                                                     </td>
                                                     <td style={{ fontSize: '0.78rem', opacity: 0.7 }}>{b.created_at ? new Date(b.created_at).toLocaleDateString() : '-'}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            onClick={() => handleDeleteUser(b.user_id, b.bank_name)}
+                                                            className="btn btn-secondary btn-sm"
+                                                            style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', padding: '3px 8px' }}
+                                                            title="Delete Blood Bank User"
+                                                        >
+                                                            <Trash2 size={13} /> Remove
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -553,6 +603,7 @@ export default function AdminDashboard() {
                                             <th>Role</th>
                                             <th>Location</th>
                                             <th>Registered</th>
+                                            <th style={{ textAlign: 'center' }}>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -573,6 +624,20 @@ export default function AdminDashboard() {
                                                 </td>
                                                 <td>{u.city}, {u.state}</td>
                                                 <td style={{ fontSize: '0.78rem', opacity: 0.7 }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    {u.user_id !== user?.user_id ? (
+                                                        <button
+                                                            onClick={() => handleDeleteUser(u.user_id, u.full_name)}
+                                                            className="btn btn-secondary btn-sm"
+                                                            style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', padding: '3px 8px' }}
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2 size={13} /> Remove
+                                                        </button>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>You</span>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Droplet, Heart, Building2, Search, ArrowRight, ShieldCheck, Activity, Users, MapPin } from 'lucide-react';
+import { Droplet, Heart, Building2, Search, ArrowRight, ShieldCheck, Activity, Users, MapPin, AlertTriangle } from 'lucide-react';
 import API from '../api';
+import EmergencyRequestModal from '../components/EmergencyRequestModal';
 
 export default function Home() {
     const navigate = useNavigate();
+    const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
     const [stats, setStats] = useState({
         totalDonors: 80,
         totalRecipients: 45,
@@ -42,7 +44,7 @@ export default function Home() {
 
     return (
         <div className="home-container">
-            {/* HERO SECTION - Wireframe 1 */}
+            {/* HERO SECTION */}
             <section className="hero-section">
                 <div className="hero-badge pulse-glow">
                     <Droplet size={16} fill="#e63946" color="#e63946" /> Emergency Blood Donation Network
@@ -50,15 +52,24 @@ export default function Home() {
 
                 <h1 className="hero-title">BLOOD-BRIDGE</h1>
                 <p className="hero-subtitle">
-                    Connecting Donors & Blood Banks with Recipients
+                    Connecting Donors &amp; Blood Banks with Recipients in Real-Time
                 </p>
 
-                <div className="hero-actions">
-                    <Link to="/recipient-dashboard" className="btn btn-primary btn-lg">
-                        <Search size={20} /> Find Blood
-                    </Link>
-                    <Link to="/login" className="btn btn-secondary btn-lg">
-                        Login / Register
+                <div className="hero-actions" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button
+                        onClick={() => setIsEmergencyModalOpen(true)}
+                        className="btn btn-primary btn-lg"
+                        style={{
+                            background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+                            boxShadow: '0 0 20px rgba(239, 68, 68, 0.6)',
+                            border: 'none',
+                            fontWeight: 700
+                        }}
+                    >
+                        <AlertTriangle size={22} className="pulse" /> Request Emergency Blood (No Login Required)
+                    </button>
+                    <Link to="/recipient-dashboard" className="btn btn-secondary btn-lg">
+                        <Search size={20} /> Search Blood Stock
                     </Link>
                 </div>
 
@@ -190,6 +201,12 @@ export default function Home() {
                     </div>
                 </div>
             </section>
+
+            {/* Emergency Request Modal */}
+            <EmergencyRequestModal
+                isOpen={isEmergencyModalOpen}
+                onClose={() => setIsEmergencyModalOpen(false)}
+            />
         </div>
     );
 }

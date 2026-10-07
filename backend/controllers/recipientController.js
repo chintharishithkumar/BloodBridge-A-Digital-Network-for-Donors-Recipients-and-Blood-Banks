@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { notifyDonorsAndBanks } = require("../services/notificationService");
 
 // Search both available donors and blood bank inventories
 const searchBlood = async (req, res) => {
@@ -78,7 +79,7 @@ const searchBlood = async (req, res) => {
     }
 };
 
-// Submit a blood request
+// Submit a logged-in recipient blood request
 const createRequest = async (req, res) => {
     try {
         const userId = req.user.user_id;
@@ -95,23 +96,9 @@ const createRequest = async (req, res) => {
             });
         }
 
-        // Ensure schema is up to date before inserting (idempotent migration)
-        try {
-            await pool.query(`
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS blood_bank_id INT REFERENCES blood_banks(blood_bank_id) ON DELETE SET NULL;
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS units_required INT DEFAULT 1;
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS emergency BOOLEAN DEFAULT false;
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS required_by DATE;
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS hospital_name VARCHAR(255);
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS fulfilled_date TIMESTAMP;
-                ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS rejected_reason TEXT;
-            `);
-        } catch (migErr) {
-            // Ignore migration errors — columns may already exist
-            console.warn("Schema migration notice (non-fatal):", migErr.message);
-        }
+        // Fetch user phone & city for notification contact details
+        const userRes = await pool.query("SELECT phone, city, full_name FROM users WHERE user_id = $1", [userId]);
+        const reqUser = userRes.rows[0] || {};
 
         // Check or create recipient record
         let recipientRes = await pool.query(
@@ -133,15 +120,15 @@ const createRequest = async (req, res) => {
             recipientId = recipientRes.rows[0].recipient_id;
         }
 
-        // Try to insert with full new schema first
+        // Try to insert with full schema
         let result;
         try {
             result = await pool.query(
                 `INSERT INTO blood_requests
                 (recipient_id, blood_bank_id, blood_group, units_required,
                  request_date, status, emergency, required_by, notes,
-                 hospital_name, patient_name)
-                VALUES ($1, $2, $3, $4, NOW(), 'PENDING', $5, $6, $7, $8, $9)
+                 hospital_name, patient_name, contact_phone, location)
+                VALUES ($1, $2, $3, $4, NOW(), 'PENDING', $5, $6, $7, $8, $9, $10, $11)
                 RETURNING *`,
                 [
                     recipientId,
@@ -152,11 +139,12 @@ const createRequest = async (req, res) => {
                     required_by || null,
                     notes || '',
                     hospital_name || null,
-                    patient_name || null
+                    patient_name || reqUser.full_name || 'Patient',
+                    reqUser.phone || null,
+                    reqUser.city || null
                 ]
             );
         } catch (insertErr) {
-            // Fallback: try with minimal old-schema columns (units_needed + urgency_level)
             console.warn("Full insert failed, trying fallback schema:", insertErr.message);
             result = await pool.query(
                 `INSERT INTO blood_requests
@@ -174,10 +162,24 @@ const createRequest = async (req, res) => {
             );
         }
 
+        const newReq = result.rows[0];
+
+        // Trigger notifications to donors and blood banks
+        await notifyDonorsAndBanks({
+            request_id: newReq.request_id,
+            blood_group: newReq.blood_group || blood_group,
+            units_required: newReq.units_required || units_required,
+            emergency: newReq.emergency || emergency || false,
+            hospital_name: newReq.hospital_name || hospital_name,
+            patient_name: newReq.patient_name || patient_name || reqUser.full_name,
+            contact_phone: reqUser.phone,
+            location: reqUser.city
+        });
+
         res.status(201).json({
             status: "success",
-            message: "Blood request submitted successfully",
-            request: result.rows[0]
+            message: "Blood request submitted successfully and alerts sent to network!",
+            request: newReq
         });
 
     } catch (error) {
@@ -185,6 +187,67 @@ const createRequest = async (req, res) => {
         res.status(500).json({
             status: "error",
             message: "Server error while submitting blood request: " + error.message
+        });
+    }
+};
+
+// Submit an unauthenticated/guest EMERGENCY blood request
+const createEmergencyRequest = async (req, res) => {
+    try {
+        const {
+            hospital_name, blood_group, units_required,
+            contact_phone, location, patient_name, notes
+        } = req.body;
+
+        if (!hospital_name || !blood_group || !units_required || !contact_phone || !location) {
+            return res.status(400).json({
+                status: "error",
+                message: "Hospital name, blood group, units, contact phone number, and location are required for emergency request"
+            });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO blood_requests
+            (recipient_id, blood_group, units_required, emergency, is_guest,
+             hospital_name, patient_name, contact_phone, location, notes, status, request_date)
+            VALUES (NULL, $1, $2, true, true, $3, $4, $5, $6, $7, 'PENDING', NOW())
+            RETURNING *`,
+            [
+                blood_group,
+                parseInt(units_required) || 1,
+                hospital_name,
+                patient_name || 'Emergency Patient',
+                contact_phone,
+                location,
+                notes || 'PUBLIC EMERGENCY REQUEST'
+            ]
+        );
+
+        const newRequest = result.rows[0];
+
+        // Notify matching donors & blood banks
+        await notifyDonorsAndBanks({
+            request_id: newRequest.request_id,
+            blood_group: newRequest.blood_group,
+            units_required: newRequest.units_required,
+            emergency: true,
+            hospital_name: newRequest.hospital_name,
+            patient_name: newRequest.patient_name,
+            contact_phone: newRequest.contact_phone,
+            location: newRequest.location
+        });
+
+        res.status(201).json({
+            status: "success",
+            message: "🚨 Emergency Blood Request Sent Successfully! Matching donors and blood banks have been notified.",
+            request: newRequest
+        });
+
+    } catch (error) {
+        console.error("Create emergency request error:", error);
+        res.status(500).json({
+            status: "error",
+            message: "Server error while submitting emergency request: " + error.message
         });
     }
 };
@@ -393,6 +456,7 @@ const getCities = async (req, res) => {
 module.exports = {
     searchBlood,
     createRequest,
+    createEmergencyRequest,
     getMyRequests,
     getRecipientProfile,
     updateRecipientProfile,
