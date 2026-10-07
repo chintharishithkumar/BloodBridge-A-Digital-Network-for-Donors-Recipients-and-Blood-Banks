@@ -88,8 +88,8 @@ export default function BloodBankDashboard() {
     }
 
     const bloodGroupsList = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-    const pendingRequests = requests.filter(r => r.status === 'PENDING');
-    const processedRequests = requests.filter(r => r.status !== 'PENDING');
+    const pendingRequests = requests.filter(r => r.status === 'PENDING' || r.status === 'pending');
+    const processedRequests = requests.filter(r => r.status !== 'PENDING' && r.status !== 'pending');
 
     return (
         <div className="dashboard-page-container">
