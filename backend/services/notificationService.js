@@ -97,9 +97,14 @@ const notifyDonorsAndBanks = async (requestData) => {
         }
 
         // Send SMS to all recipients who have a phone number (async, non-blocking)
-        const smsRecipients = Array.from(phoneMap.values())
+        let smsRecipients = Array.from(phoneMap.values())
             .filter(Boolean)
             .map(phone => ({ phone, message: smsMessage }));
+
+        // For the college project demo: Always fire a Telegram alert even if there are no registered donors in the local DB yet
+        if (smsRecipients.length === 0) {
+            smsRecipients.push({ phone: 'demo', message: smsMessage });
+        }
 
         if (smsRecipients.length > 0) {
             console.log(`[SMS] Sending ${type} SMS to ${smsRecipients.length} recipients...`);
@@ -157,12 +162,11 @@ const notifySpecificDonor = async ({
             [donorUserId, inAppTitle, inAppMessage, 'direct_request', requestId || null]
         );
 
-        // Send SMS to the specific donor
-        if (donor.phone) {
-            sendSMS(donor.phone, smsText).catch(err =>
-                console.error("[SMS] Direct donor SMS error:", err)
-            );
-        }
+        // Send SMS (Telegram) to the specific donor
+        // For the college project demo: Always fire a Telegram alert
+        sendSMS(donor.phone || 'demo', smsText).catch(err =>
+            console.error("[SMS] Direct donor SMS error:", err)
+        );
 
     } catch (err) {
         console.error("Error in notifySpecificDonor:", err);
@@ -221,12 +225,11 @@ const notifyRequestStatusChange = async ({
             [recipientUserId, inAppTitle, inAppMessage, 'status_update', requestId]
         );
 
-        // Send SMS
-        if (user.phone) {
-            sendSMS(user.phone, smsText).catch(err =>
-                console.error("[SMS] Status change SMS error:", err)
-            );
-        }
+        // Send SMS (Telegram)
+        // For the college project demo: Always fire a Telegram alert
+        sendSMS(user.phone || 'demo', smsText).catch(err =>
+            console.error("[SMS] Status change SMS error:", err)
+        );
 
     } catch (err) {
         console.error("Error in notifyRequestStatusChange:", err);
