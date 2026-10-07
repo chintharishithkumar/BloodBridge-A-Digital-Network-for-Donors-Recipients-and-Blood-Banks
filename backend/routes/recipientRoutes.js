@@ -6,7 +6,8 @@ const {
     getMyRequests,
     getRecipientProfile,
     updateRecipientProfile,
-    getCities
+    getCities,
+    contactDonor
 } = require("../controllers/recipientController");
 const authenticateToken = require("../middleware/authMiddleware");
 
@@ -19,6 +20,7 @@ router.post("/requests", authenticateToken, createRequest);
 router.get("/my-requests", authenticateToken, getMyRequests);
 router.get("/profile", authenticateToken, getRecipientProfile);
 router.put("/profile", authenticateToken, updateRecipientProfile);
+router.post("/contact-donor", authenticateToken, contactDonor); // Notify a specific donor via SMS
 
 module.exports = router;
 

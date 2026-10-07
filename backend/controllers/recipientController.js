@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { notifyDonorsAndBanks } = require("../services/notificationService");
+const { notifyDonorsAndBanks, notifySpecificDonor } = require("../services/notificationService");
 
 // Search both available donors and blood bank inventories
 const searchBlood = async (req, res) => {
@@ -458,6 +458,68 @@ const getCities = async (req, res) => {
     }
 };
 
+/**
+ * Contact a specific donor — sends them an in-app notification + SMS
+ * POST /api/recipients/contact-donor
+ * Body: { donor_id, blood_group, hospital_name, contact_phone, location, patient_name, request_id }
+ */
+const contactDonor = async (req, res) => {
+    try {
+        const requesterId = req.user.user_id;
+        const {
+            donor_id,
+            blood_group,
+            hospital_name,
+            contact_phone,
+            location,
+            request_id
+        } = req.body;
+
+        if (!donor_id) {
+            return res.status(400).json({ status: "error", message: "donor_id is required" });
+        }
+
+        // Look up the donor's user_id by donor_id
+        const donorRes = await pool.query(
+            "SELECT user_id FROM donors WHERE donor_id = $1",
+            [donor_id]
+        );
+
+        if (donorRes.rows.length === 0) {
+            return res.status(404).json({ status: "error", message: "Donor not found" });
+        }
+
+        const donorUserId = donorRes.rows[0].user_id;
+
+        // Get requester's name and phone
+        const requesterRes = await pool.query(
+            "SELECT full_name, phone FROM users WHERE user_id = $1",
+            [requesterId]
+        );
+        const requesterName = requesterRes.rows[0]?.full_name || 'Someone';
+        const requesterPhone = contact_phone || requesterRes.rows[0]?.phone || null;
+
+        await notifySpecificDonor({
+            donorUserId,
+            requesterName,
+            bloodGroup: blood_group,
+            contactPhone: requesterPhone,
+            hospitalName: hospital_name,
+            location,
+            requestId: request_id || null
+        });
+
+        res.json({
+            status: "success",
+            message: "Donor has been notified via app and SMS!"
+        });
+
+    } catch (error) {
+        console.error("Contact donor error:", error);
+        res.status(500).json({ status: "error", message: "Server error" });
+    }
+};
+
 module.exports = {
     searchBlood,
     createRequest,
@@ -465,6 +527,7 @@ module.exports = {
     getMyRequests,
     getRecipientProfile,
     updateRecipientProfile,
-    getCities
+    getCities,
+    contactDonor
 };
 

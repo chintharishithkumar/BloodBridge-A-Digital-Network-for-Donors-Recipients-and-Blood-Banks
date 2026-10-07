@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { notifyRequestStatusChange } = require("../services/notificationService");
 
 // Get blood bank profile & inventory
 const getInventory = async (req, res) => {
@@ -251,6 +252,32 @@ const updateRequestStatus = async (req, res) => {
         }
 
         const updated = await pool.query(updateQuery, updateParams);
+
+        // Fetch blood bank name for SMS message
+        const bankNameRes = await pool.query(
+            "SELECT bank_name FROM blood_banks WHERE blood_bank_id = $1",
+            [bankId]
+        );
+        const bankName = bankNameRes.rows[0]?.bank_name || 'Blood Bank';
+
+        // Notify recipient via in-app notification + SMS
+        if (bloodReq.recipient_id) {
+            const recipientUserRes = await pool.query(
+                "SELECT user_id FROM recipients WHERE recipient_id = $1",
+                [bloodReq.recipient_id]
+            );
+            if (recipientUserRes.rows.length > 0) {
+                const recipientUserId = recipientUserRes.rows[0].user_id;
+                notifyRequestStatusChange({
+                    requestId: Number(requestId),
+                    recipientUserId,
+                    newStatus: status,
+                    bloodGroup: bloodReq.blood_group,
+                    rejectedReason: req.body.rejected_reason || null,
+                    bankName
+                }).catch(err => console.error("[Notify] Status change notification error:", err));
+            }
+        }
 
         res.json({
             status: "success",
