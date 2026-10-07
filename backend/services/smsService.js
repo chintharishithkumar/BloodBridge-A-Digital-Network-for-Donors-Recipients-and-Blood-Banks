@@ -15,8 +15,7 @@
 require("dotenv").config();
 const axios = require("axios");
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+// We will read them dynamically inside the function to avoid any import-order issues
 
 /**
  * Normalizes phone number (Not used for Telegram, but kept for compatibility with notificationService.js)
@@ -30,20 +29,23 @@ const normalizePhone = (phone) => phone;
  * @returns {Promise<boolean>}
  */
 const sendSMS = async (toPhone, message) => {
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+    const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+    if (!BOT_TOKEN || !CHAT_ID) {
         console.log("[Telegram] Not configured — add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env");
         return false;
     }
 
     try {
-        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
         await axios.post(url, {
-            chat_id: TELEGRAM_CHAT_ID,
+            chat_id: CHAT_ID,
             text: message,
             parse_mode: "HTML"
         });
 
-        console.log(`[Telegram] ✅ Alert sent to Telegram Chat ID: ${TELEGRAM_CHAT_ID}`);
+        console.log(`[Telegram] ✅ Alert sent to Telegram Chat ID: ${CHAT_ID}`);
         return true;
     } catch (err) {
         console.error(`[Telegram] ❌ Failed to send: ${err.response?.data?.description || err.message}`);
