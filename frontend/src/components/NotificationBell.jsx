@@ -64,8 +64,8 @@ export default function NotificationBell() {
                 className="btn-icon"
                 style={{
                     position: 'relative',
-                    background: isOpen ? 'rgba(230,57,70,0.15)' : 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: isOpen ? '#fef2f2' : '#f9fafb',
+                    border: isOpen ? '1px solid #fecaca' : '1px solid #e5e7eb',
                     borderRadius: '50%',
                     width: '38px',
                     height: '38px',
@@ -73,12 +73,12 @@ export default function NotificationBell() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    color: '#ffffff',
+                    color: '#374151',
                     transition: 'all 0.2s'
                 }}
                 title="Notifications & Network Alerts"
             >
-                <Bell size={18} color={unreadCount > 0 ? '#ef4444' : '#e2e8f0'} />
+                <Bell size={18} color={unreadCount > 0 ? '#dc2626' : '#6b7280'} />
                 {unreadCount > 0 && (
                     <span style={{
                         position: 'absolute',
@@ -107,11 +107,10 @@ export default function NotificationBell() {
                     top: '46px',
                     width: '340px',
                     maxHeight: '450px',
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    backdropFilter: 'blur(16px)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    background: '#ffffff',
+                    border: '1px solid #fecaca',
                     borderRadius: '12px',
-                    boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+                    boxShadow: '0 12px 40px rgba(220, 38, 38, 0.1), 0 4px 16px rgba(0,0,0,0.1)',
                     zIndex: 1000,
                     display: 'flex',
                     flexDirection: 'column',
@@ -119,13 +118,13 @@ export default function NotificationBell() {
                 }}>
                     <div style={{
                         padding: '0.85rem 1rem',
-                        borderBottom: '1px solid rgba(255,255,255,0.08)',
+                        borderBottom: '1.5px solid #fecaca',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        background: 'rgba(0,0,0,0.2)'
+                        background: '#fef2f2'
                     }}>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', color: '#1a1a2e' }}>
                             <Bell size={15} color="#e63946" /> Network Alerts
                             {unreadCount > 0 && (
                                 <span className="badge badge-blood" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
@@ -139,12 +138,13 @@ export default function NotificationBell() {
                                 style={{
                                     background: 'none',
                                     border: 'none',
-                                    color: '#60a5fa',
+                                    color: '#2563eb',
                                     fontSize: '0.75rem',
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '3px'
+                                    gap: '3px',
+                                    fontWeight: 600
                                 }}
                             >
                                 <CheckCheck size={13} /> Mark all read
@@ -168,11 +168,11 @@ export default function NotificationBell() {
                                         borderRadius: '8px',
                                         marginBottom: '0.5rem',
                                         background: n.type === 'emergency_request'
-                                            ? 'rgba(239, 68, 68, 0.12)'
-                                            : !n.is_read ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+                                            ? '#fef2f2'
+                                            : !n.is_read ? '#fafafa' : '#ffffff',
                                         border: n.type === 'emergency_request'
-                                            ? '1px solid rgba(239, 68, 68, 0.3)'
-                                            : !n.is_read ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid transparent',
+                                            ? '1px solid #fecaca'
+                                            : !n.is_read ? '1px solid #e5e7eb' : '1px solid transparent',
                                         cursor: 'pointer',
                                         transition: 'all 0.2s',
                                         position: 'relative'
@@ -188,15 +188,15 @@ export default function NotificationBell() {
                                             <div style={{
                                                 fontSize: '0.82rem',
                                                 fontWeight: 600,
-                                                color: n.type === 'emergency_request' ? '#fca5a5' : '#ffffff',
+                                                color: n.type === 'emergency_request' ? '#dc2626' : '#1a1a2e',
                                                 marginBottom: '3px'
                                             }}>
                                                 {n.title}
                                             </div>
-                                            <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: '1.35', marginBottom: '6px' }}>
+                                            <div style={{ fontSize: '0.78rem', color: '#6b7280', lineHeight: '1.35', marginBottom: '6px' }}>
                                                 {n.message}
                                             </div>
-                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <div style={{ fontSize: '0.7rem', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <Clock size={11} /> {new Date(n.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                             </div>
                                         </div>

@@ -45,7 +45,7 @@ export default function Navbar() {
                 <div className="navbar-content">
                     <Link to="/" className="navbar-logo">
                         <div className="logo-icon-wrapper pulse-glow">
-                            <Droplet className="logo-icon" size={24} fill="#e63946" color="#e63946" />
+                            <Droplet className="logo-icon" size={24} fill="#dc2626" color="#dc2626" />
                         </div>
                         <div className="logo-text-group">
                             <span className="logo-title">BLOOD-BRIDGE</span>

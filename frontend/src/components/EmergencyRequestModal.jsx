@@ -61,8 +61,8 @@ export default function EmergencyRequestModal({ isOpen, onClose }) {
         <div style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(5, 7, 15, 0.85)',
-            backdropFilter: 'blur(10px)',
+            background: 'rgba(15, 15, 30, 0.5)',
+            backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -70,20 +70,20 @@ export default function EmergencyRequestModal({ isOpen, onClose }) {
             padding: '1rem'
         }}>
             <div style={{
-                background: 'linear-gradient(145deg, #18090b 0%, #0f172a 100%)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
+                background: '#ffffff',
+                border: '1.5px solid #fecaca',
                 borderRadius: '16px',
                 width: '100%',
                 maxWidth: '520px',
-                boxShadow: '0 20px 50px rgba(239, 68, 68, 0.3)',
+                boxShadow: '0 20px 60px rgba(220, 38, 38, 0.15), 0 8px 30px rgba(0,0,0,0.1)',
                 overflow: 'hidden',
                 animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
             }}>
                 {/* Header */}
                 <div style={{
                     padding: '1.25rem 1.5rem',
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    borderBottom: '1px solid rgba(239, 68, 68, 0.25)',
+                    background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)',
+                    borderBottom: '1.5px solid #fecaca',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between'
@@ -99,10 +99,10 @@ export default function EmergencyRequestModal({ isOpen, onClose }) {
                             <AlertTriangle size={20} color="#ffffff" />
                         </div>
                         <div>
-                            <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#ffffff', fontWeight: 700 }}>
+                            <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#1a1a2e', fontWeight: 700 }}>
                                 🚨 Request Emergency Blood
                             </h3>
-                            <span style={{ fontSize: '0.78rem', color: '#fca5a5' }}>
+                            <span style={{ fontSize: '0.78rem', color: '#ef4444', fontWeight: 500 }}>
                                 No account or login required • Instant Network Broadcast
                             </span>
                         </div>
@@ -110,19 +110,21 @@ export default function EmergencyRequestModal({ isOpen, onClose }) {
                     <button
                         onClick={handleReset}
                         style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#94a3b8',
+                            background: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            color: '#dc2626',
                             cursor: 'pointer',
-                            padding: '4px'
+                            padding: '6px',
+                            borderRadius: '8px',
+                            display: 'flex'
                         }}
                     >
-                        <X size={20} />
+                        <X size={18} />
                     </button>
                 </div>
 
                 {/* Content */}
-                <div style={{ padding: '1.5rem' }}>
+                <div style={{ padding: '1.5rem', background: '#ffffff' }}>
                     {successData ? (
                         <div style={{ textAlign: 'center', padding: '1rem 0' }}>
                             <div style={{
@@ -168,9 +170,9 @@ export default function EmergencyRequestModal({ isOpen, onClose }) {
                         <form onSubmit={handleSubmit}>
                             {error && (
                                 <div style={{
-                                    background: 'rgba(239, 68, 68, 0.15)',
-                                    border: '1px solid #ef4444',
-                                    color: '#fca5a5',
+                                    background: '#fef2f2',
+                                    border: '1px solid #fecaca',
+                                    color: '#dc2626',
                                     padding: '0.75rem',
                                     borderRadius: '8px',
                                     fontSize: '0.85rem',

@@ -35,6 +35,7 @@ const initDb = async () => {
         const bloodRequestAlters = [
             `ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS units_needed INT DEFAULT 1`,
             `ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS units_required INT DEFAULT 1`,
+            `ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS urgency_level VARCHAR(50) DEFAULT 'normal'`,
             `ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS blood_bank_id INT REFERENCES blood_banks(blood_bank_id) ON DELETE SET NULL`,
             `ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
             `ALTER TABLE blood_requests ADD COLUMN IF NOT EXISTS emergency BOOLEAN DEFAULT false`,
