@@ -35,7 +35,8 @@ export default function Home() {
     };
 
     return (
-        <div className="home-container">
+        <div className="home-page-wrapper">
+            <div className="home-container">
 
             {/* ── HERO SECTION ── */}
             <section className="hero-section">
@@ -303,6 +304,7 @@ export default function Home() {
                 isOpen={isEmergencyModalOpen}
                 onClose={() => setIsEmergencyModalOpen(false)}
             />
+        </div>
         </div>
     );
 }
